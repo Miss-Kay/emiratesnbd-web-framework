@@ -99,8 +99,16 @@ export class LinkScanPage extends BasePage {
       contentType: 'text/markdown',
     });
 
+    // Both directions go to the console, not only the attachment. A CI run
+    // publishes its attachments to the HTML report, but the report artifact
+    // does not always carry them and the Actions log elides attachment
+    // bodies — so a drift that only exists in an attachment is a drift you
+    // cannot diagnose without re-running. The console survives both.
     for (const link of diff.missing) {
       console.info(`[BASELINE] MISSING "${link.text || '(no text)'}" → ${link.key}`);
+    }
+    for (const link of diff.added) {
+      console.info(`[BASELINE] ADDED   "${link.text || '(no text)'}" → ${link.key}`);
     }
     console.info(
       `[BASELINE] ${baseline.linkCount} at baseline, ${links.length} now `
