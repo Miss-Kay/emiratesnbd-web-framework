@@ -1,0 +1,93 @@
+name: Emirates NBD Web Suite
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  schedule:
+    - cron: '0 4 */3 * *'   # site health check every 3rd day, 08:00 GST
+  workflow_dispatch:        # manual trigger from the Actions tab
+
+permissions:
+  contents: read
+  id-token: write   # OIDC token so AWS can be accessed without long-lived keys
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      # chromium only — the mobile project uses a Pixel 7 descriptor, which
+      # is chromium at a phone viewport. No webkit/firefox download needed.
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium
+
+      - name: Run the suites (product journey + link integrity)
+        run: npx playwright test
+        env:
+          # Defaults to the active site profile (Emirates NBD) when unset;
+          # set the BASE_URL repo variable to point CI at a staging environment.
+          BASE_URL: ${{ vars.BASE_URL }}
+
+      - name: Upload HTML report (GitHub artifact)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 14
+
+      # ---------- AWS: publish report to S3 static site ----------
+      # These steps are skipped until the AWS pieces are configured
+      # (run scripts/setup-aws-reports.sh, then set the repo secret/vars).
+      - name: Configure AWS credentials
+        if: always() && vars.REPORT_BUCKET != ''
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}   # OIDC — no long-lived keys
+          aws-region: ${{ vars.AWS_REGION }}
+
+      - name: Publish report to S3
+        if: always() && vars.REPORT_BUCKET != ''
+        run: |
+          aws s3 sync playwright-report/ \
+            "s3://${{ vars.REPORT_BUCKET }}/reports/${{ github.run_number }}/" \
+            --delete
+          aws s3 sync playwright-report/ \
+            "s3://${{ vars.REPORT_BUCKET }}/reports/latest/" \
+            --delete
+          BASE="${{ vars.REPORT_BASE_URL }}"
+          [ -z "$BASE" ] && BASE="http://${{ vars.REPORT_BUCKET }}.s3-website.${{ vars.AWS_REGION }}.amazonaws.com"
+          {
+            echo "Report: $BASE/reports/${{ github.run_number }}/index.html"
+            echo ""
+            echo "Latest (stable link): $BASE/reports/latest/index.html"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      # Optional: set a SLACK_WEBHOOK_URL repo secret to get failure pings.
+      - name: Notify Slack on failure
+        if: failure()
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+        run: |
+          if [ -z "$SLACK_WEBHOOK_URL" ]; then
+            echo "No SLACK_WEBHOOK_URL secret configured — skipping notification."
+            exit 0
+          fi
+          curl -sf -X POST -H 'Content-type: application/json' \
+            --data "{\"text\":\"❌ Emirates NBD suite run failed: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}\"}" \
+            "$SLACK_WEBHOOK_URL"
