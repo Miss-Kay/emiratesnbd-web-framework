@@ -103,8 +103,22 @@ export abstract class BasePage {
    * capture the tab the customer is now looking at, not the one they left.
    */
   async checkpointReached(stepName: string, target: Page = this.page): Promise<void> {
-    const screenshot = await target.screenshot({ fullPage: false });
-    await test.info().attach(stepName, { body: screenshot, contentType: 'image/png' });
+    // Instrumentation must never fail the run it is instrumenting.
+    //
+    // A checkpoint records where the customer got to; it asserts nothing. On
+    // a CI runner the capture can lose its race with the page — a step that
+    // opens a new tab is navigating while the screenshot is taken, and
+    // Chrome answers "Protocol error (Page.captureScreenshot): Unable to
+    // capture screenshot". That failed a journey that had worked, and the
+    // retry then passed, which is worse than either outcome: it turns a
+    // green suite into a flaky one and trains people to re-run it.
+    try {
+      const screenshot = await target.screenshot({ fullPage: false });
+      await test.info().attach(stepName, { body: screenshot, contentType: 'image/png' });
+    } catch (error) {
+      const detail = error instanceof Error ? error.message.split('\n')[0] : String(error);
+      console.warn(`[JOURNEY] checkpoint "${stepName}" could not be captured: ${detail}`);
+    }
     console.info(`[JOURNEY] checkpoint reached: ${stepName}`);
   }
 
