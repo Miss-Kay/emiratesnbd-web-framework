@@ -46,7 +46,7 @@ export class LinkScanPage extends BasePage {
    * Authored href defects that resolve anyway. Attached to the run and
    * reported, never failed — see collectHrefHygiene for why.
    */
-  async reportHrefHygiene(): Promise<{ padded: number; doubled: number }> {
+  async reportHrefHygiene(): Promise<{ padded: number; doubled: number; insecure: number }> {
     const hygiene = await collectHrefHygiene(this.page);
     await test.info().attach('href-hygiene.md', {
       body: formatHygiene(hygiene),
@@ -58,7 +58,16 @@ export class LinkScanPage extends BasePage {
     if (hygiene.doubled.length > 0) {
       console.warn(`[LINKS] ${hygiene.doubled.length} href(s) contain a doubled URL`);
     }
-    return { padded: hygiene.padded.length, doubled: hygiene.doubled.length };
+    if (hygiene.insecure.length > 0) {
+      console.warn(
+        `[LINKS] ${hygiene.insecure.length} href(s) link to this site over http://`,
+      );
+    }
+    return {
+      padded: hygiene.padded.length,
+      doubled: hygiene.doubled.length,
+      insecure: hygiene.insecure.length,
+    };
   }
 
   /**

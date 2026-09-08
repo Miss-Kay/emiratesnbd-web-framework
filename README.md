@@ -81,6 +81,15 @@ fast. Segment tabs are `javascript:void(0);` toggles at this breakpoint, so
 the segment check asserts the control is present *and* the header links to
 the destination, rather than asserting an href that only exists on desktop.
 
+**The same destination is authored under two schemes.** The fraud-awareness
+banner links `http://www.emiratesnbd.com/fraud` on some renders and `https://`
+on others — the first CI run reported one journey lost and one gained, on a
+page where nothing had changed. The scheme is therefore not part of a link's
+identity in the baseline. The `http://` authoring is a genuine defect in its
+own right — a bank sending the customer through one unencrypted request
+before the redirect — so it is reported by the hygiene step rather than
+normalised away in silence.
+
 **The same act has three labels and two destinations.** "Apply Now",
 "Apply now" and "Open Account" all mean apply, and the last routes to
 `/en/campaigns/open-account` while the others go to
@@ -102,6 +111,10 @@ Savings, Shake N Save, Smart S@ver and Manchester United Savings show only
 those detail pages returns 200 and offers an apply CTA, so the customer
 reaches an application in one more click. It is a listing inconsistency, not
 a dead end — failing on it would report a defect that does not exist.
+
+**An `http://` self-link on the home page.** See the scheme note above. It
+resolves, because the host redirects to https, so it is reported rather than
+failed — but on a bank site it is worth fixing at the source.
 
 ## The link baseline
 

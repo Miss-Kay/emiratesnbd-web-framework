@@ -95,7 +95,15 @@ export async function collectLinks(page: Page): Promise<PageLink[]> {
     const stableParams = new URLSearchParams(parsed.search);
     for (const param of site.volatileQueryParams) stableParams.delete(param);
     const stableSearch = stableParams.toString();
-    const key = `${parsed.origin}${parsed.pathname}${stableSearch ? `?${stableSearch}` : ''}`;
+
+    // The SCHEME is not part of a link's identity. The same destination is
+    // authored on this site as both http:// and https:// — the fraud
+    // awareness banner links http://www.emiratesnbd.com/fraud on some
+    // renders and https:// on others — and keying on the scheme reports
+    // that as one journey lost and one gained on every run where the two
+    // disagree. It is one link. (The http:// authoring is a real defect in
+    // its own right and is reported by collectHrefHygiene, not hidden here.)
+    const key = `https://${parsed.host}${parsed.pathname}${stableSearch ? `?${stableSearch}` : ''}`;
     const existing = byUrl.get(key);
     if (existing) {
       existing.occurrences += 1;
@@ -157,27 +165,42 @@ export async function collectMalformedLinks(page: Page): Promise<string[]> {
 export interface HrefHygiene {
   padded: string[];
   doubled: string[];
+  insecure: string[];
 }
 
 export async function collectHrefHygiene(page: Page): Promise<HrefHygiene> {
   return page.$$eval('a[href]', anchors => {
     const padded: string[] = [];
     const doubled: string[] = [];
+    const insecure: string[] = [];
+    const ownHost = location.host;
     for (const a of anchors) {
       const href = a.getAttribute('href') ?? '';
       if (!href) continue;
       const text = (a.textContent ?? '').trim().replace(/\s+/g, ' ').slice(0, 40);
       if (href !== href.trim()) padded.push(`${text || '(no text)'} → ${JSON.stringify(href)}`);
       if (/.+https?:\/\//i.test(href.trim())) doubled.push(`${text || '(no text)'} → ${href.trim()}`);
+      try {
+        const parsed = new URL((a as HTMLAnchorElement).href);
+        if (parsed.protocol === 'http:' && parsed.host === ownHost) {
+          insecure.push(`${text || '(no text)'} → ${parsed.href}`);
+        }
+      } catch {
+        /* unparseable — reported by collectMalformedLinks */
+      }
     }
-    return { padded, doubled };
+    return { padded, doubled, insecure };
   });
 }
 
 /** A readable hygiene note, attached to the run so the report explains itself. */
 export function formatHygiene(hygiene: HrefHygiene): string {
   const lines = ['# Href hygiene', ''];
-  if (hygiene.padded.length === 0 && hygiene.doubled.length === 0) {
+  if (
+    hygiene.padded.length === 0
+    && hygiene.doubled.length === 0
+    && hygiene.insecure.length === 0
+  ) {
     lines.push('Every href on the page is cleanly authored.', '');
     return lines.join('\n');
   }
@@ -186,6 +209,18 @@ export function formatHygiene(hygiene: HrefHygiene): string {
       `## Doubled URLs (${hygiene.doubled.length}) — these break for customers`,
       '',
       ...hygiene.doubled.map(entry => `- ${entry}`),
+      '',
+    );
+  }
+  if (hygiene.insecure.length > 0) {
+    lines.push(
+      `## Insecure scheme (${hygiene.insecure.length}) — the site linking to itself over http://`,
+      '',
+      'These resolve, because the host redirects to https. They still send the',
+      'customer through one unencrypted request first, on a bank site, and they',
+      'are what makes a link set look like it changed when it has not.',
+      '',
+      ...hygiene.insecure.map(entry => `- ${entry}`),
       '',
     );
   }

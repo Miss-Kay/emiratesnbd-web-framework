@@ -4,16 +4,12 @@
   "linkCount": 339,
   "links": [
     {
-      "key": "http://business.emiratesnbd.com/",
-      "text": "ENBD Business"
-    },
-    {
-      "key": "http://www.emiratesnbdsecurities.com/en-sec/",
-      "text": "Brokerage"
-    },
-    {
       "key": "https://application.emiratesnbd.com/en/kyc",
       "text": "Update my documents (KYC)"
+    },
+    {
+      "key": "https://business.emiratesnbd.com/",
+      "text": "ENBD Business"
     },
     {
       "key": "https://businessonline.emiratesnbd.com/",
@@ -1314,6 +1310,10 @@
     {
       "key": "https://www.emiratesnbdsecurities.com/en",
       "text": "English"
+    },
+    {
+      "key": "https://www.emiratesnbdsecurities.com/en-sec/",
+      "text": "Brokerage"
     },
     {
       "key": "https://www.emiratesnbdsecurities.com/en/start-trading/emirates-nbd-services/know-when-to-go-creative",
