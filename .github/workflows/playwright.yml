@@ -56,7 +56,7 @@ jobs:
       # (run scripts/setup-aws-reports.sh, then set the repo secret/vars).
       - name: Configure AWS credentials
         if: always() && vars.REPORT_BUCKET != ''
-        uses: aws-actions/configure-aws-credentials@v4
+        uses: aws-actions/configure-aws-credentials@v6
         with:
           role-to-assume: ${{ secrets.AWS_ROLE_ARN }}   # OIDC — no long-lived keys
           aws-region: ${{ vars.AWS_REGION }}
