@@ -159,6 +159,16 @@ gh repo create Miss-Kay/emiratesnbd-web-framework --public --source=. --push
 Then wire the outputs it prints (`AWS_ROLE_ARN` secret, `AWS_REGION` and
 `REPORT_BUCKET` variables) into the repo.
 
+**Done, 2026-09-10.** Bucket `emiratesnbd-suite-reports` in `eu-west-1`, role
+`emiratesnbd-web-framework-report-publisher`, all three repo settings in place.
+Verified end to end: a `workflow_dispatch` run executed 6 tests in 3.1m and
+published its report, so the OIDC assume-role works. Reports are at
+
+    http://emiratesnbd-suite-reports.s3-website.eu-west-1.amazonaws.com/reports/latest/index.html
+
+Note that `miss-kay-emirates-funnel-reports` is **FlySafair's** bucket despite
+the name — nothing here writes to it.
+
 The script trusts **both** OIDC subject forms — the classic
 `repo:owner/name:*` and this account's immutable
 `repo:owner@<id>/name@<id>:*` — because a policy matching only the classic
