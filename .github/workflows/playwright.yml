@@ -43,6 +43,13 @@ jobs:
           # set the BASE_URL repo variable to point CI at a staging environment.
           BASE_URL: ${{ vars.BASE_URL }}
 
+      # A skip is a pass as far as Playwright's exit code goes, so a run that
+      # skipped every test reports success. That is a green tick on a suite
+      # that checked nothing — see scripts/assert-suite-ran.mjs.
+      - name: Fail if the suite tested nothing
+        if: always()
+        run: node scripts/assert-suite-ran.mjs
+
       - name: Upload HTML report (GitHub artifact)
         if: always()
         uses: actions/upload-artifact@v7
